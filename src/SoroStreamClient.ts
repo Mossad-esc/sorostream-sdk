@@ -3283,7 +3283,15 @@ export class SoroStreamClient<TEventData = Record<string, unknown>> {
    * @returns `{ totalFee, minResourceFee }` in stroops.
    * @throws {Error} If `amount` is 0 or negative, or `durationSeconds` is 0 or negative.
    */
-  async estimateCreateStreamFee(params: CreateStreamParams): Promise<FeeEstimate> {
+  /**
+ * Estimates the fee cost to create a stream with the given parameters.
+ * 
+ * @param params - The stream creation parameters to estimate fee for.
+ * @returns Promise resolving to FeeEstimate with the estimated cost.
+ * @throws {InsufficientAmountError} If the amount is 0 or negative.
+ * @throws {ZeroDurationError} If the duration is less than or equal to 0.
+ */
+async estimateCreateStreamFee(params: CreateStreamParams): Promise<FeeEstimate> {
     if (params.amount <= 0n) throw new Error('Amount must be > 0');
     if (params.durationSeconds <= 0) throw new Error('Duration must be > 0');
 
@@ -3304,7 +3312,15 @@ export class SoroStreamClient<TEventData = Record<string, unknown>> {
    * @returns {@link StreamCostBreakdown} with `resourceFee`, `baseFee`, `totalFee`, and `totalInAsset`.
    * @throws {Error} If `amount` is 0 or negative, or `durationSeconds` is 0 or negative.
    */
-  async getStreamCost(params: CreateStreamParams): Promise<StreamCostBreakdown> {
+  /**
+ * Estimates the cost to create a stream with the given parameters.
+ * 
+ * @param params - The stream creation parameters to estimate cost for.
+ * @returns Promise resolving to StreamCostBreakdown with fee details.
+ * @throws {InsufficientAmountError} If the amount is 0 or negative.
+ * @throws {ZeroDurationError} If the duration is less than or equal to 0.
+ */
+async getStreamCost(params: CreateStreamParams): Promise<StreamCostBreakdown> {
     if (params.amount <= 0n) throw new Error('Amount must be > 0');
     if (params.durationSeconds <= 0) throw new Error('Duration must be > 0');
 
@@ -3921,9 +3937,15 @@ export class SoroStreamClient<TEventData = Record<string, unknown>> {
    * @param streamId - The stream ID to look up.
    * @param options - Set `{ refresh: true }` to bypass the TTL cache and force
    *   a network read (the in-flight deduplication still applies).
-   * @returns The `Stream` record.
-   * @throws {StreamNotFoundError} If no stream exists with the given ID.
-   */
+* @returns The `Stream` record.
+    * @throws {StreamNotFoundError} If no stream exists with the given ID.
+    *
+    * @example
+    * ```ts
+    * const stream = await client.getStream("123");
+    * console.log("Stream recipient:", stream.recipient);
+    * ```
+    */
   async getStream(streamId: string, options?: { refresh?: boolean }): Promise<Stream> {
     // Capture the current network so a concurrent `setNetwork` call can't
     // poison the cache with data fetched under a different network.
@@ -3978,12 +4000,28 @@ export class SoroStreamClient<TEventData = Record<string, unknown>> {
     );
   }
 
-  async getStreams(ids: string[], options?: GetStreamsOptions): Promise<Stream[]> {
+  /**
+ * Returns multiple streams by their IDs.
+ * 
+ * @param ids - Array of stream IDs to look up.
+ * @param options - Optional configuration for the request.
+ * @returns Promise resolving to an array of Stream objects.
+ * @throws {StreamNotFoundError} If any of the stream IDs cannot be found on-chain.
+ */
+async getStreams(ids: string[], options?: GetStreamsOptions): Promise<Stream[]> {
     const { streams } = await this.getStreamsBatch(ids, options);
     return streams;
   }
 
-  async getStreamsBatch(ids: string[], options?: GetStreamsOptions): Promise<BatchStreamsResult> {
+  /**
+ * Returns multiple streams by their IDs in batch mode for efficiency.
+ * 
+ * @param ids - Array of stream IDs to look up.
+ * @param options - Optional configuration for the request.
+ * @returns Promise resolving to BatchStreamsResult containing streams, missing IDs, cached IDs, and RPC call count.
+ * @throws {StreamNotFoundError} If any of the stream IDs cannot be found on-chain.
+ */
+async getStreamsBatch(ids: string[], options?: GetStreamsOptions): Promise<BatchStreamsResult> {
     if (!Array.isArray(ids)) {
       throw new TypeError('getStreams: `ids` must be an array of stream IDs');
     }
@@ -4146,9 +4184,16 @@ export class SoroStreamClient<TEventData = Record<string, unknown>> {
    * (retried automatically, then thrown). A contract-level simulation error
    * indicates the stream does not exist; network failures are retried.
    *
-   * @param streamId - The stream ID to check.
-   * @returns The claimable amount in stroops, or `0n` if the stream does not exist.
-   */
+* @param streamId - The stream ID to check.
+    * @returns The claimable amount in stroops, or `0n` if the stream does not exist.
+    * @throws {StreamNotFoundError} If the stream cannot be found on-chain.
+    *
+    * @example
+    * ```ts
+    * const claimable = await client.getClaimable("123");
+    * console.log("Claimable amount:", claimable.toString());
+    * ```
+    */
   async getClaimable(streamId: string): Promise<bigint> {
     // 1. Fast path: serve from TTL cache.
     const cached = this.claimableCache.get(streamId);
@@ -4230,9 +4275,11 @@ export class SoroStreamClient<TEventData = Record<string, unknown>> {
    * to `0n` regardless of the code path taken.
    *
    * @param streamIds - The stream IDs to look up.
-   * @returns One `StreamBalance` entry per unique input ID, in first-seen
-   *   order, with `balance` in stroops (`0n` when the stream does not exist).
-   * @example
+* @returns One `StreamBalance` entry per unique input ID, in first-seen
+    *   order, with `balance` in stroops (`0n` when the stream does not exist).
+    * @throws {StreamNotFoundError} If any of the stream IDs cannot be found on-chain.
+    *
+    * @example
    * ```ts
    * const balances = await client.getMultipleStreamBalances(["1", "2", "3"]);
    * for (const { streamId, balance } of balances) {
